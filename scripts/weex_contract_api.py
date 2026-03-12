@@ -64,13 +64,14 @@ ENDPOINTS = load_endpoint_map()
 
 
 def parse_json_arg(raw: str, arg_name: str) -> Dict[str, Any]:
+    raw = raw.strip()
     if not raw:
         return {}
-    payload = raw
     if raw.startswith("@"):
-        file_path = raw[1:]
-        with open(file_path, "r", encoding="utf-8") as f:
-            payload = f.read()
+        raise SystemExit(
+            f"{arg_name} no longer accepts @file input. Pass a JSON object string directly."
+        )
+    payload = raw
     try:
         parsed = json.loads(payload)
     except json.JSONDecodeError as exc:
@@ -451,8 +452,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_call = sub.add_parser("call", help="Call an endpoint by key with JSON query/body")
     p_call.add_argument("--endpoint", required=True, choices=sorted(ENDPOINTS.keys()))
-    p_call.add_argument("--query", default="{}", help="JSON object or @file.json")
-    p_call.add_argument("--body", default="{}", help="JSON object or @file.json")
+    p_call.add_argument("--query", default="{}", help="JSON object string")
+    p_call.add_argument("--body", default="{}", help="JSON object string")
     p_call.add_argument("--dry-run", action="store_true", help="Preview signed request without sending")
     p_call.add_argument("--confirm-live", action="store_true", help="Allow live mutating requests")
     p_call.add_argument("--pretty", action="store_true")

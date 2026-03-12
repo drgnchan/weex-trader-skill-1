@@ -59,17 +59,6 @@ python3 scripts/weex_spot_api.py place-order \
 - Default flow is direct live execution (no dry-run step).
 - If instruction is ambiguous or missing fields, ask only for missing fields.
 
-## Updates
-
-Publish updates as GitHub Releases with asset `weex-trader-skill.skill`.
-
-Users can check/apply updates:
-
-```bash
-python3 scripts/skill_update.py check --repo <owner>/<repo>
-python3 scripts/skill_update.py update --repo <owner>/<repo>
-```
-
 ## Regenerating API Definitions
 
 Local contract and spot definitions are generated from the live WEEX V3 docs:
@@ -88,4 +77,3 @@ python3 scripts/generate_weex_api_definitions.py --product all
 - `references/contract-endpoints.md`
 - `references/auth-and-signing.md`
 - `references/websocket.md`
-- `references/updates.md`
