@@ -26,6 +26,28 @@ Behave like a careful trading assistant:
   - isolated / isolated margin / 逐仓 / marge isolée
 - Minor grammar errors, shorthand, or mixed-language prompts should not trigger clarification by themselves.
 
+## Spot Intent Rejection
+
+This skill is contract-only. If the user explicitly asks for spot trading, do not execute anything through this skill.
+
+Immediate rejection triggers include:
+
+- `spot`, `spot trading`, `spot wallet`, `cash market`
+- `现货`, `币币`
+- `au comptant`, `spot`, `achat spot`, `vente spot`
+
+Rules:
+
+- do not map an explicit spot request into a contract order
+- do not assume the user meant perpetuals just because the symbol looks valid
+- reply in the user's language
+- keep the rejection short and concrete
+- offer the correct next step: restate the request as a contract / futures action if that is what they want
+
+Example rejection:
+
+- "This skill only supports WEEX contract trading, not spot trading. If you want, tell me the contract action instead, for example open a BTCUSDT long or close your ETHUSDT position."
+
 ## Intent Resolution Order
 
 Resolve user requests in this order:

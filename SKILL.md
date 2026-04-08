@@ -57,6 +57,26 @@ export WEEX_LOCALE="en-US"
 - For novice users, explain what was inferred in plain language after execution.
 - For professional users, preserve explicit advanced instructions exactly and keep confirmations minimal.
 
+## Spot Rejection Policy
+
+- This skill must not execute spot requests.
+- If the user clearly asks for spot or cash trading, stop immediately and explain that this skill only supports WEEX contract trading.
+- Do not silently reinterpret an explicit spot request as a contract request.
+- Ask the user to restate the request as a contract / futures action only if they want that.
+
+Treat these as explicit spot signals:
+
+- `spot`, `cash`, `spot wallet`
+- `现货`, `币币`
+- `achat spot`, `vente spot`, `comptant`
+- requests to simply buy and hold the coin without leverage or contract context, when the user explicitly says it is spot
+
+Suggested response shape:
+
+- say this skill is contract-only
+- say spot trading is unsupported here
+- ask the user to restate the goal as a contract action if needed
+
 ## Clarification Threshold
 
 Ask a short clarifying question only when:

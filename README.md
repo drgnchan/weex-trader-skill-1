@@ -75,6 +75,7 @@ The skill is designed so the agent can infer common trading intent with minimal 
 - follows the user's language instead of forcing a rephrase
 - prefers one compact state read over multiple clarification turns
 - asks only when ambiguity would materially change the trade or risk scope
+- rejects explicit spot-trading requests instead of silently converting them into contract actions
 
 Examples:
 
