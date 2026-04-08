@@ -2,6 +2,8 @@
 
 `weex-trader-skill` is a **WEEX contract-only** skill for Codex / Openclaw / Claude Code.
 
+Current skill version: `2.1.0`
+
 It is designed for low-friction agent workflows:
 
 - inspect market, account, position, and order state
@@ -10,6 +12,8 @@ It is designed for low-friction agent workflows:
 - change leverage, margin mode, and isolated margin safely
 - inspect contract bills / income with structured filters
 - place and modify TP/SL and conditional orders
+- reduce unnecessary confirmation loops for both novice and professional users
+- interpret natural-language requests more reliably before mapping them into tool calls
 
 This repository no longer supports spot automation.
 
@@ -65,6 +69,13 @@ Check whether $weex-trader-skill is installed.
 
 Mention `$weex-trader-skill` and describe the goal in plain language.
 
+The skill is designed so the agent can infer common trading intent with minimal follow-up:
+
+- understands novice phrasing and shorthand better
+- follows the user's language instead of forcing a rephrase
+- prefers one compact state read over multiple clarification turns
+- asks only when ambiguity would materially change the trade or risk scope
+
 Examples:
 
 ```text
@@ -81,6 +92,18 @@ Use $weex-trader-skill to close my ETHUSDT contract position.
 
 ```text
 Use $weex-trader-skill to set ETHUSDT isolated leverage to 15x on both sides.
+```
+
+```text
+Use $weex-trader-skill to do: btc 市价多 200u 20x
+```
+
+```text
+Use $weex-trader-skill to do: open a BTC long at market with 200 USDT margin and 20x leverage
+```
+
+```text
+Use $weex-trader-skill to do: ouvre un long BTC au marché avec 200 USDT et levier 20x
 ```
 
 ## Core Commands
@@ -223,6 +246,16 @@ python3 scripts/weex_contract_api.py place-conditional-order \
 - `adjust-position-margin` resolves isolated positions explicitly and refuses ambiguous target selection
 - mutating commands require `--confirm-live`, or `--dry-run` for preview
 - business success is checked after HTTP success; the script does not treat `200 OK` as enough
+
+## Agent Interaction Model
+
+When the agent uses this skill well, it should:
+
+- infer missing operational details from the prompt and current account state when that inference is unique
+- avoid asking the user to repeat symbol, side, or leverage information already present in the prompt
+- explain inferred choices in plain language after execution for novice users
+- keep confirmations short and rare for professional users
+- perform one targeted state refresh after an execution failure before deciding whether to ask or retry
 
 ## Current Scope
 

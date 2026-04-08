@@ -2,7 +2,7 @@
 name: weex-trader-skill
 description: Use when the user wants low-friction WEEX contract trading automation via structured REST commands, including market/account inspection, single or batch order execution, cancel/close, leverage and isolated-margin changes, income queries, and TP/SL workflows.
 metadata:
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # WEEX Contract Trader Skill
@@ -12,6 +12,9 @@ Do not use it for spot.
 
 Use:
 - `scripts/weex_contract_api.py`
+
+Load this when the user prompt is natural-language, multilingual, novice-style, shorthand, or ambiguous:
+- `references/agent-execution-policy.md`
 
 Implementation layout:
 - `scripts/weex_contract/core.py`: shared client, request execution, payload analysis, cached state, symbol/order helpers
@@ -42,6 +45,37 @@ export WEEX_LOCALE="en-US"
 - For symbol-wide destructive actions, require the user's instruction to be explicit about the symbol.
 - For account-wide destructive actions, require the user's instruction to be explicit about `all`.
 - Use `--dry-run` when the user wants a preview. Otherwise use `--confirm-live` for live mutation commands.
+
+## Conversation Policy
+
+- Follow the user's language. Chinese, English, French, and mixed-language trading prompts should be accepted without translation requests.
+- Infer standard trading synonyms from natural language: long/short, market/limit, cross/isolated, close/flatten, TP/SL.
+- Prefer one compact state read before a live action when it removes ambiguity.
+- Do not ask the user to restate information that is already present in the prompt or can be uniquely derived from current account state.
+- If one isolated leverage value is given without long/short separation, apply it to both isolated sides.
+- If one isolated position can be uniquely matched by symbol and side, do not ask for position ID.
+- For novice users, explain what was inferred in plain language after execution.
+- For professional users, preserve explicit advanced instructions exactly and keep confirmations minimal.
+
+## Clarification Threshold
+
+Ask a short clarifying question only when:
+
+- symbol is missing and cannot be inferred from recent context
+- long vs short is missing for an opening request
+- a request may act on the whole account but the user did not clearly ask for account-wide scope
+- multiple isolated positions match and side is not uniquely determined
+- isolated long/short leverage targets cannot be inferred safely
+- switching margin mode would affect active positions or orders and the user did not clearly ask to force it
+
+Otherwise, infer and proceed.
+
+## Recovery Policy
+
+- After failures, prefer one targeted state refresh before asking the user anything.
+- Retry reads freely.
+- Retry writes only when post-failure state proves the intended action did not happen and the retry is low-risk and deterministic.
+- Do not blindly replay open, close, leverage, or margin-mode mutations.
 
 ## Fast Path
 
@@ -223,4 +257,5 @@ python3 scripts/weex_contract_api.py cancel-orders-batch \
 - `references/contract-api-definitions.md`
 - `references/contract-endpoints.md`
 - `references/auth-and-signing.md`
+- `references/agent-execution-policy.md`
 - `references/websocket.md`
