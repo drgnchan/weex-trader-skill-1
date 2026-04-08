@@ -2,7 +2,7 @@
 
 `weex-trader-skill` is a **WEEX contract-only** skill for Codex / Openclaw / Claude Code.
 
-Current skill version: `2.1.0`
+Current skill version: `2.2.0`
 
 It is designed for low-friction agent workflows:
 
@@ -14,6 +14,7 @@ It is designed for low-friction agent workflows:
 - place and modify TP/SL and conditional orders
 - reduce unnecessary confirmation loops for both novice and professional users
 - interpret natural-language requests more reliably before mapping them into tool calls
+- auto-prepare a symbol for side-specific isolated leverage instead of telling the user to configure it manually in the exchange UI
 
 This repository no longer supports spot automation.
 
@@ -190,6 +191,17 @@ python3 scripts/weex_contract_api.py set-leverage \
   --pretty
 ```
 
+Set different long / short leverage and let the skill prepare the symbol if needed:
+
+```bash
+python3 scripts/weex_contract_api.py set-leverage \
+  --symbol ETHUSDT \
+  --long 20 \
+  --short 10 \
+  --confirm-live \
+  --pretty
+```
+
 Change margin mode:
 
 ```bash
@@ -243,6 +255,7 @@ python3 scripts/weex_contract_api.py place-conditional-order \
 - account-wide close/cancel requires explicit `--all`
 - `place-order` blocks risky opposite-side combinations unless `--allow-position-reduction` is explicit
 - `place-orders-batch` applies the same protection to each order and caps the request at 10 orders
+- `set-leverage` can now automatically clear symbol-scoped orders / positions, switch mode, and then apply side-specific isolated leverage when that transition is required
 - `set-margin-mode` refuses by default when the symbol still has active positions or open/pending orders
 - `adjust-position-margin` resolves isolated positions explicitly and refuses ambiguous target selection
 - mutating commands require `--confirm-live`, or `--dry-run` for preview

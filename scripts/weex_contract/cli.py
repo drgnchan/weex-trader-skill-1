@@ -181,6 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_leverage.add_argument("--cross", default=None)
     p_leverage.add_argument("--long", default=None)
     p_leverage.add_argument("--short", default=None)
+    p_leverage.add_argument("--position-mode", default=None, choices=["COMBINED", "SEPARATED", "combined", "separated"])
     p_leverage.add_argument("--dry-run", action="store_true")
     p_leverage.add_argument("--confirm-live", action="store_true")
     p_leverage.add_argument("--pretty", action="store_true")

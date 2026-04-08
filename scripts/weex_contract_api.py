@@ -14,10 +14,13 @@ if str(SCRIPT_DIR) not in sys.path:
 from weex_contract.account_ops import (  # noqa: E402,F401
     build_adjust_position_margin_request,
     build_leverage_request,
+    build_leverage_transition_plan,
     cmd_adjust_position_margin,
     cmd_set_auto_append_margin,
     cmd_set_leverage,
     cmd_set_margin_mode,
+    infer_target_margin_type_for_leverage,
+    infer_target_position_mode_for_leverage,
     leverage_already_matches,
     margin_mode_already_matches,
     resolve_position_id_for_symbol,

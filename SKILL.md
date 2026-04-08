@@ -2,7 +2,7 @@
 name: weex-trader-skill
 description: Use when the user wants low-friction WEEX contract trading automation via structured REST commands, including market/account inspection, single or batch order execution, cancel/close, leverage and isolated-margin changes, income queries, and TP/SL workflows.
 metadata:
-  version: "2.1.0"
+  version: "2.2.0"
 ---
 
 # WEEX Contract Trader Skill
@@ -42,6 +42,8 @@ export WEEX_LOCALE="en-US"
 - For multiple openings in one request, use `place-orders-batch` with structured JSON objects, not raw endpoint mutation.
 - For full exits, prefer `close-positions` instead of sending the opposite order side manually.
 - For isolated margin changes, use `adjust-position-margin` and resolve the target position by `--symbol` plus `--position-side` whenever possible.
+- When the user requests different long and short leverage for one symbol, treat that as an isolated side-specific leverage workflow.
+- For side-specific leverage workflows, do not send the user to the exchange UI. Inspect symbol state and complete the required symbol preparation through this skill.
 - For symbol-wide destructive actions, require the user's instruction to be explicit about the symbol.
 - For account-wide destructive actions, require the user's instruction to be explicit about `all`.
 - Use `--dry-run` when the user wants a preview. Otherwise use `--confirm-live` for live mutation commands.
@@ -54,6 +56,7 @@ export WEEX_LOCALE="en-US"
 - Do not ask the user to restate information that is already present in the prompt or can be uniquely derived from current account state.
 - If one isolated leverage value is given without long/short separation, apply it to both isolated sides.
 - If one isolated position can be uniquely matched by symbol and side, do not ask for position ID.
+- If the user gives different long and short leverage values, infer isolated side-specific leverage even if they did not explicitly say `isolated`.
 - For novice users, explain what was inferred in plain language after execution.
 - For professional users, preserve explicit advanced instructions exactly and keep confirmations minimal.
 
@@ -89,6 +92,23 @@ Ask a short clarifying question only when:
 - switching margin mode would affect active positions or orders and the user did not clearly ask to force it
 
 Otherwise, infer and proceed.
+
+## Side-Specific Leverage Workflow
+
+When the user asks for different long / short leverage on one symbol:
+
+1. Read current symbol state.
+2. If the symbol is already isolated and the position mode already supports side-specific leverage, set leverage directly.
+3. If the symbol is cross margin or not in the required position mode:
+   - cancel open orders for that symbol
+   - cancel pending / plan / conditional orders for that symbol
+   - close positions for that symbol
+   - switch the symbol to isolated mode and the required position mode
+   - apply the requested long / short leverage
+4. Continue with the user's order flow after the leverage workflow completes.
+
+Do not ask the user to manually configure margin mode or leverage in the exchange UI.
+Use `--dry-run` only when the user asked for a preview. Otherwise complete the sequence.
 
 ## Recovery Policy
 
@@ -265,6 +285,7 @@ python3 scripts/weex_contract_api.py cancel-orders-batch \
 - `place-order` blocks risky opposite-side pairs unless `--allow-position-reduction` is explicit.
 - `place-orders-batch` reuses the same side / position-side safety checks per item and caps a request at 10 orders.
 - `set-margin-mode` blocks by default when the symbol still has open positions, active orders, or pending orders.
+- `set-leverage` now auto-prepares a symbol for side-specific isolated leverage when that transition is required.
 - `adjust-position-margin` resolves isolated positions explicitly and refuses ambiguous side selection.
 - `close-positions` and `cancel-open-orders` are symbol-scoped by default. Account-wide action requires `--all`.
 - `cancel-pending-orders` is also symbol-scoped by default. Account-wide cancellation requires `--all`.

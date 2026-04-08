@@ -116,6 +116,7 @@ Use these defaults unless the user's request contradicts them:
 - If a user gives a limit price, use a limit order.
 - If a user gives no price for an opening request, use a market order.
 - If a user gives one isolated leverage value and does not distinguish long vs short, apply it to both sides.
+- If a user gives different long and short leverage values, infer an isolated side-specific leverage workflow even if they did not explicitly say `isolated`.
 - If a user asks to close a position, prefer `close-positions` instead of synthesizing the opposite order.
 - If a user asks to cancel "all orders" for one symbol, cancel active orders first; if the wording clearly includes trigger/plan/conditional orders, also cancel pending orders.
 - If a user asks to add or reduce isolated margin and the symbol has exactly one isolated open position, target it without asking for position ID.
@@ -185,3 +186,25 @@ After each mutation, prefer a short user-facing summary containing:
 - any warnings that matter to the user
 
 Keep the raw structured output for the tool call, but the conversational answer should stay concise.
+
+## Side-Specific Leverage Workflow
+
+When the user asks for different long and short leverage on one symbol:
+
+1. fetch symbol state
+2. inspect:
+   - current margin mode
+   - current position mode
+   - open positions
+   - open orders
+   - pending orders
+3. if the symbol is already ready for isolated side-specific leverage, set leverage directly
+4. otherwise, automatically prepare the symbol in this order:
+   - cancel open orders for that symbol
+   - cancel pending / conditional orders for that symbol
+   - close positions for that symbol
+   - switch to isolated mode and the required position mode
+   - apply long / short leverage
+5. continue with the intended trade flow
+
+Do not tell the user to go to the exchange page and change this manually.

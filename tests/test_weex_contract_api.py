@@ -108,6 +108,81 @@ class LeverageBuilderTests(unittest.TestCase):
         )
         self.assertEqual(body["crossLeverage"], "20")
 
+    def test_side_specific_leverage_implies_isolated_mode(self):
+        state = FakeState(
+            current_config={
+                "symbol": "ETHUSDT",
+                "marginType": "CROSSED",
+                "separatedType": "COMBINED",
+                "crossLeverage": "10",
+            }
+        )
+        body, preflight = MODULE.build_leverage_request(
+            Namespace(
+                symbol="ETHUSDT",
+                margin_type=None,
+                position_mode=None,
+                value=None,
+                cross=None,
+                long="20",
+                short="10",
+            ),
+            state,
+            "ETHUSDT",
+        )
+        self.assertEqual(body["marginType"], "ISOLATED")
+        self.assertEqual(body["isolatedLongLeverage"], "20")
+        self.assertEqual(body["isolatedShortLeverage"], "10")
+        self.assertEqual(preflight["target_position_mode"], "SEPARATED")
+
+    def test_transition_plan_auto_clears_cross_state_before_side_specific_leverage(self):
+        state = FakeState(
+            current_config={
+                "symbol": "ETHUSDT",
+                "marginType": "CROSSED",
+                "separatedType": "COMBINED",
+                "crossLeverage": "10",
+            },
+            positions=[
+                {"symbol": "ETHUSDT", "side": "LONG", "marginType": "CROSSED", "size": "0.01"},
+            ],
+            open_orders=[
+                {"symbol": "ETHUSDT", "orderId": "1001"},
+            ],
+        )
+        body, preflight = MODULE.build_leverage_request(
+            Namespace(
+                symbol="ETHUSDT",
+                margin_type=None,
+                position_mode=None,
+                value=None,
+                cross=None,
+                long="20",
+                short="10",
+            ),
+            state,
+            "ETHUSDT",
+        )
+        plan = MODULE.build_leverage_transition_plan(
+            Namespace(
+                symbol="ETHUSDT",
+                margin_type=None,
+                position_mode=None,
+                value=None,
+                cross=None,
+                long="20",
+                short="10",
+            ),
+            preflight,
+            body,
+        )
+        self.assertTrue(plan["requires_mode_change"])
+        self.assertTrue(plan["requires_clearing_active_state"])
+        self.assertEqual(
+            plan["steps"],
+            ["cancel_open_orders", "close_positions", "set_margin_mode", "set_leverage"],
+        )
+
 
 class PlaceOrderBuilderTests(unittest.TestCase):
     def test_limit_order_defaults_tif_to_gtc(self):
