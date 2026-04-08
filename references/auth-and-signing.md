@@ -27,4 +27,4 @@ Credential source policy:
 - if missing, fail fast and ask user to set env vars
 
 Main reference:
-- https://www.weex.com/api-doc/spot/QuickStart/Signature
+- WEEX contract API docs signature section

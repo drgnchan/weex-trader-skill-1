@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate local WEEX REST API definitions from the live V3 docs."""
+"""Regenerate local WEEX contract REST API definitions from the live V3 docs."""
 
 from __future__ import annotations
 
@@ -14,8 +14,16 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
-import requests
-from bs4 import BeautifulSoup, Tag
+try:
+    import requests
+except ModuleNotFoundError:
+    requests = None  # type: ignore[assignment]
+
+try:
+    from bs4 import BeautifulSoup, Tag
+except ModuleNotFoundError:
+    BeautifulSoup = None  # type: ignore[assignment]
+    Tag = Any  # type: ignore[misc,assignment]
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,15 +37,6 @@ CONTRACT_GROUP_MAP = {
     "Account_API": "account",
     "Transaction_API": "transaction",
 }
-
-SPOT_GROUP_MAP = {
-    "ConfigAPI": "config",
-    "MarketDataAPI": "market",
-    "AccountAPI": "account",
-    "orderApi": "order",
-    "rebate-endpoints": "rebate",
-}
-
 
 @dataclass
 class ParsedDoc:
@@ -56,6 +55,8 @@ class ParsedDoc:
 
 
 def fetch_text(url: str) -> str:
+    if requests is None:
+        raise SystemExit("Missing dependency: requests. Install it before regenerating contract definitions.")
     response = requests.get(url, timeout=DOC_TIMEOUT)
     response.raise_for_status()
     return response.text
@@ -97,9 +98,9 @@ def parse_weight(text: str) -> tuple[Optional[int], Optional[int]]:
 
 def get_group(product: str, path_parts: List[str]) -> Optional[str]:
     group_segment = path_parts[2] if len(path_parts) > 2 else ""
-    if product == "contract":
-        return CONTRACT_GROUP_MAP.get(group_segment)
-    return SPOT_GROUP_MAP.get(group_segment)
+    if product != "contract":
+        return None
+    return CONTRACT_GROUP_MAP.get(group_segment)
 
 
 def extract_table_rows(container: Tag) -> List[Dict[str, str]]:
@@ -137,6 +138,8 @@ def extract_table_rows(container: Tag) -> List[Dict[str, str]]:
 
 
 def parse_doc(url: str) -> Optional[ParsedDoc]:
+    if BeautifulSoup is None:
+        raise SystemExit("Missing dependency: beautifulsoup4. Install it before regenerating contract definitions.")
     html = fetch_text(url)
     soup = BeautifulSoup(html, "html.parser")
     article = soup.find("article")
@@ -162,7 +165,7 @@ def parse_doc(url: str) -> Optional[ParsedDoc]:
     if len(path_parts) < 4 or path_parts[0] != "api-doc":
         return None
     product = path_parts[1]
-    if product not in {"contract", "spot"}:
+    if product != "contract":
         return None
     if "V2" in path_parts or path_parts[1] == "zh-CN":
         return None
@@ -175,9 +178,6 @@ def parse_doc(url: str) -> Optional[ParsedDoc]:
     title = clean_text(title_node.get_text(" ", strip=True)) if title_node else path_parts[-1]
 
     key = f"{category}.{slugify(path_parts[-1])}"
-    if product == "spot":
-        key = f"spot.{key}"
-
     weight_text = clean_text(markdown.get_text(" ", strip=True))
     weight_ip, weight_uid = parse_weight(weight_text)
     requires_auth = "ACCESS-KEY" in clean_text(article.get_text(" ", strip=True))
@@ -329,11 +329,11 @@ def write_outputs(product: str, docs: List[ParsedDoc]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Regenerate WEEX REST API definitions from live docs")
-    parser.add_argument("--product", choices=["contract", "spot", "all"], default="all")
+    parser.add_argument("--product", choices=["contract"], default="contract")
     args = parser.parse_args()
 
     sitemap_urls = load_sitemap_urls()
-    products = ["contract", "spot"] if args.product == "all" else [args.product]
+    products = [args.product]
     for product in products:
         urls = iter_doc_urls(product, sitemap_urls)
         docs = collect_docs(product, urls)
