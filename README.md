@@ -5,12 +5,31 @@
 It is designed for low-friction agent workflows:
 
 - inspect market, account, position, and order state
-- open positions with structured commands
-- close positions and cancel orders with explicit scope
-- change leverage and margin mode safely
+- open positions with structured single-order or batch-order commands
+- close positions and cancel active or conditional orders with explicit scope
+- change leverage, margin mode, and isolated margin safely
+- inspect contract bills / income with structured filters
 - place and modify TP/SL and conditional orders
 
 This repository no longer supports spot automation.
+
+## Internal Layout
+
+The public entrypoint stays the same:
+
+```bash
+python3 scripts/weex_contract_api.py ...
+```
+
+Internally the skill is now split into focused modules:
+
+- `scripts/weex_contract/core.py`
+- `scripts/weex_contract/read_ops.py`
+- `scripts/weex_contract/order_ops.py`
+- `scripts/weex_contract/account_ops.py`
+- `scripts/weex_contract/cli.py`
+
+This keeps command behavior stable while reducing the amount of code an agent has to load and patch at once.
 
 ## One-Time Setup
 
@@ -74,6 +93,7 @@ python3 scripts/weex_contract_api.py account-snapshot --symbol BTCUSDT --pretty
 python3 scripts/weex_contract_api.py positions --pretty
 python3 scripts/weex_contract_api.py open-orders --symbol BTCUSDT --pretty
 python3 scripts/weex_contract_api.py pending-orders --symbol BTCUSDT --pretty
+python3 scripts/weex_contract_api.py contract-bills --symbol BTCUSDT --limit 20 --pretty
 ```
 
 Open a position:
@@ -85,6 +105,16 @@ python3 scripts/weex_contract_api.py place-order \
   --type LIMIT \
   --quantity 0.001 \
   --price 10000 \
+  --confirm-live \
+  --pretty
+```
+
+Open multiple positions in one request:
+
+```bash
+python3 scripts/weex_contract_api.py place-orders-batch \
+  --symbol ETHUSDT \
+  --batch-orders '[{"intent":"OPEN_LONG","type":"MARKET","quantity":"0.001"},{"intent":"OPEN_SHORT","type":"LIMIT","quantity":"0.001","price":"2100"}]' \
   --confirm-live \
   --pretty
 ```
@@ -107,6 +137,24 @@ python3 scripts/weex_contract_api.py cancel-open-orders \
   --pretty
 ```
 
+Cancel conditional orders:
+
+```bash
+python3 scripts/weex_contract_api.py cancel-pending-orders \
+  --symbol ETHUSDT \
+  --confirm-live \
+  --pretty
+```
+
+Cancel multiple active orders:
+
+```bash
+python3 scripts/weex_contract_api.py cancel-orders-batch \
+  --order-ids 12345,12346 \
+  --confirm-live \
+  --pretty
+```
+
 Set leverage:
 
 ```bash
@@ -125,6 +173,18 @@ python3 scripts/weex_contract_api.py set-margin-mode \
   --symbol ETHUSDT \
   --margin-type ISOLATED \
   --position-mode SEPARATED \
+  --confirm-live \
+  --pretty
+```
+
+Adjust isolated margin:
+
+```bash
+python3 scripts/weex_contract_api.py adjust-position-margin \
+  --symbol ETHUSDT \
+  --position-side LONG \
+  --amount 20 \
+  --direction INCREASE \
   --confirm-live \
   --pretty
 ```
@@ -158,7 +218,9 @@ python3 scripts/weex_contract_api.py place-conditional-order \
 - raw mutating endpoint calls are disabled
 - account-wide close/cancel requires explicit `--all`
 - `place-order` blocks risky opposite-side combinations unless `--allow-position-reduction` is explicit
+- `place-orders-batch` applies the same protection to each order and caps the request at 10 orders
 - `set-margin-mode` refuses by default when the symbol still has active positions or open/pending orders
+- `adjust-position-margin` resolves isolated positions explicitly and refuses ambiguous target selection
 - mutating commands require `--confirm-live`, or `--dry-run` for preview
 - business success is checked after HTTP success; the script does not treat `200 OK` as enough
 
@@ -172,6 +234,9 @@ The contract wrapper is structured around these areas:
 - active orders
 - conditional orders
 - contract leverage / margin-mode management
+- isolated margin adjustments
+- contract income / bills queries
+- batch order placement / cancellation
 - dedicated TP/SL workflows
 
 ## Regenerate Local Definitions

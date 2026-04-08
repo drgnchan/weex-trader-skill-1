@@ -14,7 +14,7 @@ SPEC.loader.exec_module(MODULE)
 
 
 class FakeState:
-    def __init__(self, *, current_config=None, positions=None, ticker=None, contract_info=None):
+    def __init__(self, *, current_config=None, positions=None, ticker=None, contract_info=None, open_orders=None):
         self._current_config = current_config or {
             "symbol": "ETHUSDT",
             "marginType": "ISOLATED",
@@ -31,6 +31,7 @@ class FakeState:
             "stepSize": "0.001",
             "minQty": "0.001",
         }
+        self._open_orders = open_orders or []
 
     def account_config(self):
         return {"canTrade": True}
@@ -49,6 +50,9 @@ class FakeState:
 
     def pending_orders(self, symbol=None):
         return []
+
+    def open_orders(self, symbol=None):
+        return list(self._open_orders)
 
 
 class AnalyzePayloadTests(unittest.TestCase):
@@ -153,6 +157,118 @@ class PlaceOrderBuilderTests(unittest.TestCase):
                 ),
                 state,
                 "ETHUSDT",
+            )
+
+
+class ContractBillsBuilderTests(unittest.TestCase):
+    def test_symbol_and_limit_are_normalized(self):
+        body = MODULE.build_contract_bills_body(
+            Namespace(
+                asset="usdt",
+                symbol="eth/usdt",
+                income_type="position_funding",
+                start_time=None,
+                end_time=None,
+                limit=50,
+            )
+        )
+        self.assertEqual(body["asset"], "USDT")
+        self.assertEqual(body["symbol"], "ETHUSDT")
+        self.assertEqual(body["limit"], 50)
+
+    def test_time_range_above_100_days_is_rejected(self):
+        with self.assertRaises(MODULE.CommandError):
+            MODULE.build_contract_bills_body(
+                Namespace(
+                    asset=None,
+                    symbol=None,
+                    income_type=None,
+                    start_time=0,
+                    end_time=101 * 24 * 60 * 60 * 1000,
+                    limit=None,
+                )
+            )
+
+
+class PositionMarginBuilderTests(unittest.TestCase):
+    def test_adjust_position_margin_uses_isolated_position_field_aliases(self):
+        state = FakeState(
+            positions=[
+                {"positionId": "12345", "side": "LONG", "marginType": "ISOLATED", "size": "0.01", "symbol": "ETHUSDT"},
+            ]
+        )
+        body, preflight = MODULE.build_adjust_position_margin_request(
+            Namespace(
+                symbol="ETHUSDT",
+                position_side="LONG",
+                position_id=None,
+                amount="12.5",
+                direction="increase",
+            ),
+            state,
+        )
+        self.assertEqual(body["isolatedPositionId"], "12345")
+        self.assertEqual(body["type"], 1)
+        self.assertEqual(preflight["symbol"], "ETHUSDT")
+
+    def test_adjust_position_margin_requires_disambiguation(self):
+        state = FakeState(
+            positions=[
+                {"id": "1", "side": "LONG", "marginType": "ISOLATED", "size": "0.01", "symbol": "ETHUSDT"},
+                {"id": "2", "side": "SHORT", "marginType": "ISOLATED", "size": "0.02", "symbol": "ETHUSDT"},
+            ]
+        )
+        with self.assertRaises(MODULE.CommandError):
+            MODULE.build_adjust_position_margin_request(
+                Namespace(
+                    symbol="ETHUSDT",
+                    position_side=None,
+                    position_id=None,
+                    amount="5",
+                    direction="DECREASE",
+                ),
+                state,
+            )
+
+
+class CancelOrdersBatchBuilderTests(unittest.TestCase):
+    def test_cancel_orders_batch_accepts_csv_and_json_array(self):
+        body = MODULE.build_cancel_orders_batch_body(
+            Namespace(order_ids="1001,1002", client_oids='["cli-1","cli-2"]')
+        )
+        self.assertEqual(body["orderIdList"], ["1001", "1002"])
+        self.assertEqual(body["origClientOrderIdList"], ["cli-1", "cli-2"])
+
+    def test_cancel_orders_batch_requires_some_identifier(self):
+        with self.assertRaises(MODULE.CommandError):
+            MODULE.build_cancel_orders_batch_body(Namespace(order_ids=None, client_oids=None))
+
+
+class BatchPlaceOrderBuilderTests(unittest.TestCase):
+    def test_batch_place_applies_default_symbol(self):
+        state = FakeState()
+        body, preflight, warnings = MODULE.build_place_orders_batch_request(
+            Namespace(
+                symbol="ETHUSDT",
+                batch_orders='[{"intent":"OPEN_LONG","type":"MARKET","quantity":"0.01"},{"intent":"OPEN_SHORT","type":"LIMIT","quantity":"0.02","price":"1700"}]',
+            ),
+            state,
+        )
+        self.assertEqual(len(body["batchOrders"]), 2)
+        self.assertEqual(body["batchOrders"][0]["symbol"], "ETHUSDT")
+        self.assertEqual(body["batchOrders"][1]["type"], "LIMIT")
+        self.assertEqual(preflight[0]["symbol"], "ETHUSDT")
+        self.assertEqual(warnings[0]["warnings"], [])
+
+    def test_batch_place_requires_symbol_per_order_or_default(self):
+        state = FakeState()
+        with self.assertRaises(MODULE.CommandError):
+            MODULE.build_place_orders_batch_request(
+                Namespace(
+                    symbol=None,
+                    batch_orders='[{"intent":"OPEN_LONG","type":"MARKET","quantity":"0.01"}]',
+                ),
+                state,
             )
 
 

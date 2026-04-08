@@ -1,0 +1,2 @@
+"""WEEX contract CLI package."""
+
